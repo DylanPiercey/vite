@@ -93,7 +93,9 @@ export interface PluginContainer {
     id: string,
     inMap?: SourceDescription['map'],
     ssr?: boolean
-  ): Promise<SourceDescription | null>
+  ): Promise<
+    (SourceDescription & { transformDependencies: Set<string> | null }) | null
+  >
   load(id: string, ssr?: boolean): Promise<LoadResult | null>
   close(): Promise<void>
 }
@@ -215,6 +217,7 @@ export async function createPluginContainer(
     }
 
     addWatchFile(id: string) {
+      id = resolve(root, id)
       watchFiles.add(id)
       if (watcher) ensureWatchedFile(watcher, id, root)
     }
@@ -314,6 +317,7 @@ export async function createPluginContainer(
     originalSourcemap: SourceMap | null = null
     sourcemapChain: NonNullable<SourceDescription['map']>[] = []
     combinedMap: SourceMap | null = null
+    _transformDependencies: Set<string> | null = null
 
     constructor(filename: string, code: string, inMap?: SourceMap | string) {
       super()
@@ -364,6 +368,14 @@ export async function createPluginContainer(
 
     getCombinedSourcemap() {
       return this._getCombinedSourcemap(true) as SourceMap
+    }
+
+    addWatchFile(id: string) {
+      id = resolve(root, id)
+      watchFiles.add(id)
+      if (watcher) ensureWatchedFile(watcher, id, root)
+      this._transformDependencies ??= new Set()
+      this._transformDependencies.add(id)
     }
   }
 
@@ -512,7 +524,8 @@ export async function createPluginContainer(
       }
       return {
         code,
-        map: ctx._getCombinedSourcemap()
+        map: ctx._getCombinedSourcemap(),
+        transformDependencies: ctx._transformDependencies
       }
     },
 

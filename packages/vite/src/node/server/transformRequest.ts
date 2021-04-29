@@ -121,6 +121,18 @@ export async function transformRequest(
   // transform
   const transformStart = isDebug ? Date.now() : 0
   const transformResult = await pluginContainer.transform(code, id, map, ssr)
+
+  if (transformResult?.transformDependencies) {
+    for (const dep of transformResult.transformDependencies) {
+      const invalidations = moduleGraph.transformInvalidateMap.get(dep)
+      if (invalidations) {
+        invalidations.push(id)
+      } else {
+        moduleGraph.transformInvalidateMap.set(dep, [id])
+      }
+    }
+  }
+
   if (
     transformResult == null ||
     (typeof transformResult === 'object' && transformResult.code == null)

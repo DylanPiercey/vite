@@ -46,6 +46,7 @@ function invalidateSSRModule(mod: ModuleNode, seen: Set<ModuleNode>) {
   mod.importers.forEach((importer) => invalidateSSRModule(importer, seen))
 }
 export class ModuleGraph {
+  transformInvalidateMap = new Map<string, string[]>()
   urlToModuleMap = new Map<string, ModuleNode>()
   idToModuleMap = new Map<string, ModuleNode>()
   // a single file may corresponds to multiple modules with different queries
@@ -70,13 +71,14 @@ export class ModuleGraph {
   }
 
   onFileChange(file: string): void {
-    const mods = this.getModulesByFile(file)
-    if (mods) {
-      const seen = new Set<ModuleNode>()
-      mods.forEach((mod) => {
+    const seen = new Set<ModuleNode>()
+    const invalidateFile = (file: string) =>
+      this.getModulesByFile(file)?.forEach((mod) =>
         this.invalidateModule(mod, seen)
-      })
-    }
+      )
+
+    invalidateFile(file)
+    this.transformInvalidateMap.get(file)?.forEach(invalidateFile)
   }
 
   invalidateModule(mod: ModuleNode, seen: Set<ModuleNode> = new Set()): void {
